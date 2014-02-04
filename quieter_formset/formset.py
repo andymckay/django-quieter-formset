@@ -88,6 +88,11 @@ class BaseFormSet(QuieterBaseFormset, DjangoBaseFormSet):
 
 
 class BaseModelFormSet(QuieterBaseFormset, DjangoBaseModelFormSet):
+    def __init__(self, *args, **kwargs):
+        super(BaseModelFormSet, self).__init__(*args, **kwargs)
+        # So much for lazy initialization!
+        self.forms
+
     # Quieter handling for mangled management forms
     def total_form_count(self):
         if self.data or self.files:
