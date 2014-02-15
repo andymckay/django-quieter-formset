@@ -41,7 +41,8 @@ class QuieterBaseFormset:
         set.
         """
         self._errors = []
-        self._non_form_errors = self.error_class()
+        if not self._non_form_errors:
+            self._non_form_errors = self.error_class()
         if not self.is_bound: # Stop further processing.
             return
         for i in range(0, self.total_form_count()):
