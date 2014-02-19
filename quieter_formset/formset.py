@@ -91,7 +91,9 @@ class BaseFormSet(QuieterBaseFormset, DjangoBaseFormSet):
 class BaseModelFormSet(QuieterBaseFormset, DjangoBaseModelFormSet):
     def __init__(self, *args, **kwargs):
         super(BaseModelFormSet, self).__init__(*args, **kwargs)
-        # So much for lazy initialization!
+        # DjangoBaseModelFormSet's `forms` attribute is lazily
+        # initialized. We initialize it here to avoid circularity
+        # problems in form validation.
         self.forms
 
     # Quieter handling for mangled management forms
