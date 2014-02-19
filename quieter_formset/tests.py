@@ -3,7 +3,7 @@ from datetime import datetime
 import unittest
 import urllib
 
-from django.contrib.admin.models import User
+from django.contrib.auth.models import User
 from django.forms.formsets import formset_factory
 from django.forms.models import modelformset_factory
 from django.http import QueryDict

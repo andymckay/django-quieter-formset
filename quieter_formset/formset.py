@@ -4,6 +4,7 @@ from django.forms.formsets import (TOTAL_FORM_COUNT, INITIAL_FORM_COUNT,
                                    BaseFormSet as DjangoBaseFormSet)
 from django.forms.models import BaseModelFormSet as DjangoBaseModelFormSet
 from django.forms.formsets import ManagementForm
+from django.utils.functional import cached_property
 from django.utils.datastructures import MultiValueDictKeyError
 
 
@@ -40,6 +41,8 @@ class QuieterBaseFormset:
         set.
         """
         self._errors = []
+        if not self._non_form_errors:
+            self._non_form_errors = self.error_class()
         if not self.is_bound: # Stop further processing.
             return
         for i in range(0, self.total_form_count()):
@@ -63,12 +66,17 @@ class BaseFormSet(QuieterBaseFormset, DjangoBaseFormSet):
     # Quieter handling for mangled management forms
     def total_form_count(self):
         if self.data or self.files:
-            if hasattr(self.management_form, 'cleaned_data'):
-                return self.management_form.cleaned_data[TOTAL_FORM_COUNT]
-            else:
-                return 0
+            cleaned_data = getattr(self.management_form, 'cleaned_data', {})
+            return cleaned_data.get(TOTAL_FORM_COUNT, 0)
         else:
             return DjangoBaseFormSet.total_form_count(self)
+
+    def initial_form_count(self):
+        if self.data or self.files:
+            cleaned_data = getattr(self.management_form, 'cleaned_data', {})
+            return cleaned_data.get(INITIAL_FORM_COUNT, 0)
+        else:
+            return DjangoBaseFormSet.initial_form_count(self)
 
     def is_valid(self):
         """
@@ -81,28 +89,42 @@ class BaseFormSet(QuieterBaseFormset, DjangoBaseFormSet):
 
 
 class BaseModelFormSet(QuieterBaseFormset, DjangoBaseModelFormSet):
+    def __init__(self, *args, **kwargs):
+        super(BaseModelFormSet, self).__init__(*args, **kwargs)
+        # DjangoBaseModelFormSet's `forms` attribute is lazily
+        # initialized. We initialize it here to avoid circularity
+        # problems in form validation.
+        self.forms
+
     # Quieter handling for mangled management forms
     def total_form_count(self):
         if self.data or self.files:
-            if hasattr(self.management_form, 'cleaned_data'):
-                return self.management_form.cleaned_data[TOTAL_FORM_COUNT]
-            else:
-                return 0
+            cleaned_data = getattr(self.management_form, 'cleaned_data', {})
+            return cleaned_data.get(TOTAL_FORM_COUNT, 0)
         else:
             return DjangoBaseModelFormSet.total_form_count(self)
 
+    def initial_form_count(self):
+        if self.data or self.files:
+            cleaned_data = getattr(self.management_form, 'cleaned_data', {})
+            return cleaned_data.get(INITIAL_FORM_COUNT, 0)
+        else:
+            return DjangoBaseModelFormSet.initial_form_count(self)
+
     # Handling of invalid data on form construction
-    def _construct_forms(self):
-        self.forms = []
+    @cached_property
+    def forms(self):
+        forms = []
         for i in xrange(self.total_form_count()):
             try:
-                self.forms.append(self._construct_form(i))
+                forms.append(self._construct_form(i))
             except MultiValueDictKeyError, err:
                 self._non_form_errors = err
             except KeyError, err:
                 self._non_form_errors = u'Key not found on form: %s' % err
             except (ValueError, IndexError), err:
                 self._non_form_errors = err
+        return forms
 
     def is_valid(self):
         """
